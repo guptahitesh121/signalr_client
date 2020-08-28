@@ -20,8 +20,7 @@ enum HubConnectionState {
   Connected,
 }
 
-typedef InvocationEventCallback = void Function(
-    HubMessageBase invocationEvent, Exception error);
+typedef InvocationEventCallback = void Function(HubMessageBase invocationEvent, Exception error);
 typedef MethodInvacationFunc = void Function(List<Object> arguments);
 typedef ClosedCallback = void Function(Exception error);
 
@@ -92,8 +91,7 @@ class HubConnection {
   /// Returns a Promise that resolves when the connection has been successfully established, or rejects with an error.
   ///
   Future<void> start() async {
-    final handshakeRequest =
-        HandshakeRequestMessage(this._protocol.name, this._protocol.version);
+    final handshakeRequest = HandshakeRequestMessage(this._protocol.name, this._protocol.version);
 
     _logger?.finer("Starting HubConnection.");
 
@@ -103,8 +101,7 @@ class HubConnection {
     await _connection.start(transferFormat: _protocol.transferFormat);
 
     _logger?.finer("Sending handshake request.");
-    await _sendMessage(
-        _handshakeProtocol.writeHandshakeRequest(handshakeRequest));
+    await _sendMessage(_handshakeProtocol.writeHandshakeRequest(handshakeRequest));
 
     _logger?.info("Using HubProtocol '${_protocol.name}'.");
 
@@ -143,8 +140,7 @@ class HubConnection {
     var pauseSendingItems = false;
     final StreamController streamController = StreamController<Object>(
       onCancel: () {
-        final cancelMessage =
-            _createCancelInvocation(invocationMessage.invocationId);
+        final cancelMessage = _createCancelInvocation(invocationMessage.invocationId);
         final formatedCancelMessage = _protocol.writeMessage(cancelMessage);
         _callbacks.remove(invocationMessage.invocationId);
         _sendMessage(formatedCancelMessage);
@@ -153,8 +149,7 @@ class HubConnection {
       onResume: () => pauseSendingItems = false,
     );
 
-    _callbacks[invocationMessage.invocationId] =
-        (HubMessageBase invocationEvent, Exception error) {
+    _callbacks[invocationMessage.invocationId] = (HubMessageBase invocationEvent, Exception error) {
       if (error != null) {
         streamController.addError(error);
         return;
@@ -220,8 +215,7 @@ class HubConnection {
 
     final completer = Completer<Object>();
 
-    _callbacks[invocationMessage.invocationId] =
-        (HubMessageBase invocationEvent, Exception error) {
+    _callbacks[invocationMessage.invocationId] = (HubMessageBase invocationEvent, Exception error) {
       if (error != null) {
         completer.completeError(error);
         return;
@@ -233,8 +227,7 @@ class HubConnection {
             completer.complete(invocationEvent.result);
           }
         } else {
-          completer.completeError(new GeneralError(
-              "Unexpected message type: ${invocationEvent.type}"));
+          completer.completeError(new GeneralError("Unexpected message type: ${invocationEvent.type}"));
         }
       }
     };
@@ -308,9 +301,15 @@ class HubConnection {
   ///
   /// callback: The handler that will be invoked when the connection is closed. Optionally receives a single argument containing the error that caused the connection to close (if any).
   ///
-  void onclose(ClosedCallback callback) {
+  void addOnCloseListener(ClosedCallback callback) {
     if (callback != null) {
       _closedCallbacks.add(callback);
+    }
+  }
+
+  void removeOnCloseListener(ClosedCallback callback) {
+    if (callback != null) {
+      _closedCallbacks.remove(callback);
     }
   }
 
@@ -354,10 +353,8 @@ class HubConnection {
             final closeMsg = message as CloseMessage;
 
             // We don't want to wait on the stop itself.
-            _connection.stop(!isStringEmpty(closeMsg.error)
-                ? new GeneralError(
-                    "Server returned an error on close: '${closeMsg.error}'")
-                : null);
+            _connection
+                .stop(!isStringEmpty(closeMsg.error) ? new GeneralError("Server returned an error on close: '${closeMsg.error}'") : null);
 
             break;
           default:
@@ -389,8 +386,7 @@ class HubConnection {
       throw error;
     }
     if (!isStringEmpty(handshakeResult.handshakeResponseMessage.error)) {
-      final message =
-          "Server returned handshake error: '${handshakeResult.handshakeResponseMessage.error}'";
+      final message = "Server returned handshake error: '${handshakeResult.handshakeResponseMessage.error}'";
       _logger?.severe(message);
 
       _handshakeCompleter?.completeError(new GeneralError(message));
@@ -409,9 +405,7 @@ class HubConnection {
 
   void _resetKeepAliveInterval() {
     _cleanupServerPingTimer();
-    _pingServerTimer =
-        Timer.periodic(Duration(milliseconds: keepAliveIntervalInMilliseconds),
-            (Timer t) async {
+    _pingServerTimer = Timer.periodic(Duration(milliseconds: keepAliveIntervalInMilliseconds), (Timer t) async {
       if (_connectionState == HubConnectionState.Connected) {
         try {
           await _sendMessage(_cachedPingMessage);
@@ -426,12 +420,9 @@ class HubConnection {
 
   void _resetTimeoutPeriod() {
     _cleanupTimeoutTimer();
-    if ((_connection.features == null) ||
-        (_connection.features.inherentKeepAlive == null) ||
-        (!_connection.features.inherentKeepAlive)) {
+    if ((_connection.features == null) || (_connection.features.inherentKeepAlive == null) || (!_connection.features.inherentKeepAlive)) {
       // Set the timeout timer
-      _timeoutTimer = Timer.periodic(
-          Duration(milliseconds: serverTimeoutInMilliseconds), _serverTimeout);
+      _timeoutTimer = Timer.periodic(Duration(milliseconds: serverTimeoutInMilliseconds), _serverTimeout);
     }
   }
 
@@ -448,8 +439,7 @@ class HubConnection {
   void _serverTimeout(Timer t) {
     // The server hasn't talked to us in a while. It doesn't like us anymore ... :(
     // Terminate the connection, but we don't need to wait on the promise.
-    _connection.stop(GeneralError(
-        "Server timeout elapsed without receiving a message from the server."));
+    _connection.stop(GeneralError("Server timeout elapsed without receiving a message from the server."));
   }
 
   void _invokeClientMethod(InvocationMessage invocationMessage) {
@@ -458,16 +448,14 @@ class HubConnection {
       methods.forEach((m) => m(invocationMessage.arguments));
       if (!isStringEmpty(invocationMessage.invocationId)) {
         // This is not supported in v1. So we return an error to avoid blocking the server waiting for the response.
-        final message =
-            "Server requested a response, which is not supported in this version of the client.";
+        final message = "Server requested a response, which is not supported in this version of the client.";
         _logger?.severe(message);
 
         // We don't need to wait on this Promise.
         _connection.stop(new GeneralError(message));
       }
     } else {
-      _logger?.warning(
-          "No client method with the name '${invocationMessage.target}' found.");
+      _logger?.warning("No client method with the name '${invocationMessage.target}' found.");
     }
   }
 
@@ -481,8 +469,7 @@ class HubConnection {
     // if it has already completed this should just noop
     _handshakeCompleter?.completeError(error);
 
-    final callbackError = error ??
-        new GeneralError("Invocation canceled due to connection being closed.");
+    final callbackError = error ?? new GeneralError("Invocation canceled due to connection being closed.");
     callbacks.values.forEach((callback) => callback(null, callbackError));
 
     _cleanupTimeoutTimer();
@@ -491,22 +478,18 @@ class HubConnection {
     _closedCallbacks.forEach((callback) => callback(error));
   }
 
-  InvocationMessage _createInvocation(
-      String methodName, List<Object> args, bool nonblocking) {
+  InvocationMessage _createInvocation(String methodName, List<Object> args, bool nonblocking) {
     if (nonblocking) {
       return InvocationMessage(methodName, args, MessageHeaders(), null);
     } else {
       final id = _id++;
-      return InvocationMessage(
-          methodName, args, MessageHeaders(), id.toString());
+      return InvocationMessage(methodName, args, MessageHeaders(), id.toString());
     }
   }
 
-  StreamInvocationMessage _createStreamInvocation(
-      String methodName, List<Object> args) {
+  StreamInvocationMessage _createStreamInvocation(String methodName, List<Object> args) {
     final id = _id++;
-    return StreamInvocationMessage(
-        methodName, args, MessageHeaders(), id.toString());
+    return StreamInvocationMessage(methodName, args, MessageHeaders(), id.toString());
   }
 
   static CancelInvocationMessage _createCancelInvocation(String id) {
