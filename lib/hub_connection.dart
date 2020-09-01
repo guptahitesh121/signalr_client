@@ -35,7 +35,7 @@ class HubConnection {
 
   Map<String, InvocationEventCallback> _callbacks;
   Map<String, List<MethodInvacationFunc>> _methods;
-  List<ClosedCallback> _closedCallbacks;
+  ClosedCallback _closedCallback;
 
   int _id;
   bool _receivedHandshakeResponse;
@@ -78,7 +78,7 @@ class HubConnection {
 
     _callbacks = {};
     _methods = {};
-    _closedCallbacks = [];
+
     _id = 0;
     _receivedHandshakeResponse = false;
     _connectionState = HubConnectionState.Disconnected;
@@ -301,16 +301,8 @@ class HubConnection {
   ///
   /// callback: The handler that will be invoked when the connection is closed. Optionally receives a single argument containing the error that caused the connection to close (if any).
   ///
-  void addOnCloseListener(ClosedCallback callback) {
-    if (callback != null) {
-      _closedCallbacks.add(callback);
-    }
-  }
-
-  void removeOnCloseListener(ClosedCallback callback) {
-    if (callback != null) {
-      _closedCallbacks.remove(callback);
-    }
+  void setOnCloseListener(ClosedCallback callback) {
+    _closedCallback = callback;
   }
 
   void _processIncomingData(Object data) {
@@ -475,7 +467,7 @@ class HubConnection {
     _cleanupTimeoutTimer();
     _cleanupServerPingTimer();
 
-    _closedCallbacks.forEach((callback) => callback(error));
+    _closedCallback?.call(error);
   }
 
   InvocationMessage _createInvocation(String methodName, List<Object> args, bool nonblocking) {
